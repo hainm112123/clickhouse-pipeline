@@ -10,3 +10,8 @@
         - protocol: http
         - user: grafana
         - pass: 123
+		
+- access nifi:
+	- url: https://localhost:8443/nifi
+	- username: admin
+	- password: Password1234
