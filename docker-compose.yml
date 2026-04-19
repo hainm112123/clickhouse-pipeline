@@ -71,6 +71,12 @@ services:
     container_name: grafana
     ports:
       - "3000:3000"
+    environment:
+    - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - clickstack
     networks:
@@ -78,6 +84,7 @@ services:
 
 volumes:
   clickhouse_data:
+  grafana_data:
 
 networks:
   shared:

@@ -13,7 +13,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS mv_env_sensor_metrics
 TO environmental_data
 AS
 SELECT
-    toDateTime(JSONExtractInt(raw, 'dt')) AS timestamp,
+    -- toDateTime(JSONExtractInt(raw, 'dt')) AS timestamp,
+    now() AS timestamp,
 
     JSONExtractString(JSONExtractRaw(raw, 'sys'), 'country') AS country,
     JSONExtractString(raw, 'name') AS city,
