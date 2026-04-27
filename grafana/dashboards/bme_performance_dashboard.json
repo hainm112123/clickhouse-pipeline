@@ -178,7 +178,7 @@
         ]
       },
       "gridPos": {
-        "h": 7,
+        "h": 6,
         "w": 24,
         "x": 0,
         "y": 6
@@ -225,7 +225,7 @@
           },
           "format": 0,
           "queryType": "sql",
-          "rawSql": "SELECT event_time, round(query_duration_ms / 1000, 2) as duration_sec, round(ProfileEvents['OSCPUTimeNano'] / (query_duration_ms * 1000000 + 1) * 100, 2) as peak_cpu_pct, written_rows, round(written_rows / (query_duration_ms / 1000 + 0.001), 0) as rows_per_sec, memory_usage as peak_mem FROM system.query_log WHERE query LIKE 'INSERT INTO sensor_storage.bme280_data%' AND type = 'QueryFinish' ORDER BY event_time ASC SETTINGS use_query_cache = 0",
+          "rawSql": "SELECT event_time, round(query_duration_ms / 1000, 2) as duration_sec, round(ProfileEvents['OSCPUTimeNano'] / (query_duration_ms * 1000000 + 1) * 100, 2) as peak_cpu_pct, written_rows, round(written_rows / (query_duration_ms / 1000 + 0.001), 0) as rows_per_sec, memory_usage as peak_mem FROM system.query_log WHERE query LIKE 'INSERT INTO sensor_storage.%' AND type = 'QueryFinish' ORDER BY event_time ASC SETTINGS use_query_cache = 0",
           "refId": "A"
         }
       ]
@@ -287,7 +287,31 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "temp"
+              "options": "pm25"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "µg/m³"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pm10"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "µg/m³"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "temperature"
             },
             "properties": [
               {
@@ -311,10 +335,10 @@
         ]
       },
       "gridPos": {
-        "h": 10,
+        "h": 8,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 12
       },
       "id": 3,
       "options": {
@@ -329,7 +353,7 @@
           "sort": "none"
         }
       },
-      "title": "BME280 Data Preview",
+      "title": "Data preview",
       "type": "timeseries",
       "targets": [
         {
@@ -339,7 +363,129 @@
           },
           "format": 1,
           "queryType": "sql",
-          "rawSql": "SELECT toStartOfInterval(timestamp, INTERVAL 1 MINUTE) as time, avg(temperature) as temp, avg(humidity) as humidity FROM sensor_storage.bme280_data WHERE timestamp >= '2026-04-17 00:00:00' AND timestamp < '2026-04-18 00:00:00' GROUP BY time ORDER BY time ASC SETTINGS use_query_cache = 0",
+          "rawSql": "SELECT \n    s.timestamp AS time,\n    s.P2 AS pm25,\n    s.P1 AS pm10,\n    b.temperature,\n    b.humidity\nFROM sensor_storage.sds011_data AS s\nASOF LEFT JOIN sensor_storage.bme280_data AS b \n    ON s.location = b.location AND s.timestamp >= b.timestamp\nWHERE s.timestamp >= '2026-04-17 00:00:00' AND s.timestamp < '2026-04-18 00:00:00'\nORDER BY s.timestamp ASC\nSETTINGS use_query_cache = 0",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "ClickHouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 4,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "title": "Sudden PM2.5 Spikes (>50%)",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "ClickHouse"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT * FROM (SELECT timestamp, P2 as pm25, lag(P2) OVER (ORDER BY timestamp ASC) as prev_pm25, round(abs(P2 - prev_pm25) / (prev_pm25 + 0.1) * 100, 2) AS percent_change FROM sensor_storage.sds011_data) WHERE prev_pm25 > 0 AND percent_change > 50 ORDER BY timestamp DESC LIMIT 20 SETTINGS use_query_cache = 0",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "ClickHouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "Total"
+                },
+                "1": {
+                  "text": "Humidity > 90%"
+                },
+                "2": {
+                  "text": "PM2.5 Cleanse (<15)"
+                }
+              },
+              "type": "value"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 5,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "title": "Humidity vs Dust Cleanse Funnel (30m window)",
+      "type": "bargauge",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "ClickHouse"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT level, count() AS num_events FROM (SELECT windowFunnel(1800)(timestamp, humidity > 90, P2 < 15) AS level FROM (SELECT s.timestamp, b.humidity, s.P2 FROM sensor_storage.sds011_data AS s ASOF LEFT JOIN sensor_storage.bme280_data AS b ON s.location = b.location AND s.timestamp >= b.timestamp ORDER BY s.timestamp ASC)) GROUP BY level ORDER BY level SETTINGS use_query_cache = 0",
           "refId": "A"
         }
       ]
@@ -350,18 +496,15 @@
   "style": "dark",
   "tags": [
     "performance",
-    "bme280"
+    "bme280",
+    "sds011",
+    "analytics"
   ],
-  "templating": {
-    "list": []
-  },
   "time": {
-    "from": "now-6h",
-    "to": "now"
+    "from": "2026-04-17T00:00:00Z",
+    "to": "2026-04-17T23:59:59Z"
   },
-  "timepicker": {},
-  "timezone": "",
-  "title": "BME Performance & Compression",
+  "title": "BME & SDS Performance Analysis",
   "uid": "bme_perf_001",
-  "version": 8
+  "version": 11
 }

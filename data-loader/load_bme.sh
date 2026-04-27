@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Configuration
+CONTAINER_NAME="clickstack"
+DATABASE="sensor_storage"
+# Calculate absolute paths relative to the script
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( dirname "$SCRIPT_DIR" )"
+BME_DIR="$PROJECT_ROOT/clickhouse-bme-data"
+SDS_DIR="$PROJECT_ROOT/clickhouse-sds-data"
+
+load_combined_data() {
+    local dir=$1
+    local filename=$2
+    local table=$3
+    local label=$4
+
+    CSV_FILE="$dir/$filename"
+
+    if [ ! -f "$CSV_FILE" ]; then
+        echo "Warning: Combined file not found: $CSV_FILE"
+        echo "Please run 'python combine_data.py' first."
+        return
+    fi
+
+    echo "Loading combined $label data from: $CSV_FILE"
+    
+    START_TIME=$(date +%s%N)
+    
+    cat "$CSV_FILE" | docker exec -i "$CONTAINER_NAME" clickhouse-client \
+        --query="INSERT INTO $DATABASE.$table FORMAT CSVWithNames" \
+        --format_csv_delimiter ';'
+    
+    END_TIME=$(date +%s%N)
+    DURATION_NS=$((END_TIME - START_TIME))
+    DURATION_SEC=$(echo "scale=3; $DURATION_NS / 1000000000" | bc -l 2>/dev/null || awk "BEGIN {print $DURATION_NS / 1000000000}")
+    
+    echo "  - Done in $DURATION_SEC seconds"
+}
+
+echo "Targeting Container: $CONTAINER_NAME"
+echo "------------------------------------------------"
+
+# Load combined BME data
+load_combined_data "$BME_DIR" "combined_bme.csv" "bme280_data" "BME280"
+
+# Load combined SDS data
+load_combined_data "$SDS_DIR" "combined_sds.csv" "sds011_data" "SDS011"
+
+echo "------------------------------------------------"
+echo "Recent Load Metrics (system.query_log):"
+docker exec -i "$CONTAINER_NAME" clickhouse-client --query="
+SELECT
+    event_time,
+    query_duration_ms,
+    written_rows,
+    formatReadableSize(written_bytes) as written_bytes,
+    formatReadableSize(memory_usage) as mem,
+    substring(query, 1, 50) as query_short
+FROM system.query_log
+WHERE query LIKE 'INSERT INTO sensor_storage.%'
+  AND type = 'QueryFinish'
+ORDER BY event_time DESC
+LIMIT 5
+SETTINGS use_query_cache = 0
+FORMAT Vertical
+"

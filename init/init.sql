@@ -121,4 +121,24 @@ CREATE TABLE IF NOT EXISTS sensor_storage.bme280_data
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(timestamp)
-ORDER BY (sensor_id, timestamp);
+ORDER BY (sensor_id, timestamp);
+
+CREATE TABLE IF NOT EXISTS sensor_storage.sds011_data
+(
+    sensor_id UInt32,
+    sensor_type LowCardinality(String),
+    location UInt32,
+    lat Float32,
+    lon Float32,
+    timestamp DateTime,
+    P1 Float32 CODEC(Gorilla, LZ4),
+    durP1 Nullable(Float32),
+    ratioP1 Nullable(Float32),
+    P2 Float32 CODEC(Gorilla, LZ4),
+    durP2 Nullable(Float32),
+    ratioP2 Nullable(Float32)
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(timestamp)
+ORDER BY (sensor_id, timestamp);
+
