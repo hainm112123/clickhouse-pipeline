@@ -37,3 +37,8 @@
 # Demo note
 - BME:
 	- compression codecs: DoubleDelta, LZ4
+- Run:
+	- python data-loader/download_data.py
+	- python data-loader/combine_data.py
+	- ./data-loader/load_bme.ps1 (Windows) or ./data-loader/load_bme.sh (Linux)
+	- docker restart grafana
