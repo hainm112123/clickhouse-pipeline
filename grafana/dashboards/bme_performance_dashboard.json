@@ -437,23 +437,7 @@
         "defaults": {
           "color": {
             "mode": "palette-classic"
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "text": "Total"
-                },
-                "1": {
-                  "text": "Humidity > 90%"
-                },
-                "2": {
-                  "text": "PM2.5 Cleanse (<15)"
-                }
-              },
-              "type": "value"
-            }
-          ]
+          }
         },
         "overrides": []
       },
@@ -475,8 +459,8 @@
           "values": false
         }
       },
-      "title": "Humidity vs Dust Cleanse Funnel (30m window)",
-      "type": "bargauge",
+      "title": "Air Cleanse Events (High Humidity -> Low Dust)",
+      "type": "table",
       "targets": [
         {
           "datasource": {
