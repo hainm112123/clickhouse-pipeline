@@ -23,13 +23,21 @@ load_combined_data() {
         return
     fi
 
-    echo "Loading combined $label data from: $CSV_FILE"
+    echo "Loading combined $label data natively from: $CSV_FILE"
     
     START_TIME=$(date +%s%N)
     
-    cat "$CSV_FILE" | docker exec -i "$CONTAINER_NAME" clickhouse-client \
-        --query="INSERT INTO $DATABASE.$table FORMAT CSVWithNames" \
+    # 1. Copy file to container's temp directory for native access
+    TEMP_FILE="/tmp/$filename"
+    docker cp "$CSV_FILE" "$CONTAINER_NAME:$TEMP_FILE"
+
+    # 2. Use ClickHouse native FROM INFILE for maximum speed
+    docker exec "$CONTAINER_NAME" clickhouse-client \
+        --query="INSERT INTO $DATABASE.$table FROM INFILE '$TEMP_FILE' FORMAT CSVWithNames" \
         --format_csv_delimiter ';'
+
+    # 3. Cleanup temp file in container
+    docker exec "$CONTAINER_NAME" rm "$TEMP_FILE"
     
     END_TIME=$(date +%s%N)
     DURATION_NS=$((END_TIME - START_TIME))

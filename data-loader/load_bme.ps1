@@ -16,13 +16,20 @@ function Load-CombinedSensorData {
         return
     }
 
-    Write-Host "Loading combined $Label data from: $CsvFile"
+    Write-Host "Loading combined $Label data natively from: $CsvFile"
     $StartTime = Get-Date
 
-    # Pipe file content to clickhouse-client
-    Get-Content $CsvFile | docker exec -i $ContainerName clickhouse-client `
-        --query="INSERT INTO $Database.$Table FORMAT CSVWithNames" `
+    # 1. Copy file to container's temp directory for native access
+    $TempFileName = "/tmp/$Filename"
+    docker cp $CsvFile "${ContainerName}:$TempFileName"
+
+    # 2. Use ClickHouse native FROM INFILE for maximum speed
+    docker exec $ContainerName clickhouse-client `
+        --query="INSERT INTO $Database.$Table FROM INFILE '$TempFileName' FORMAT CSVWithNames" `
         --format_csv_delimiter ';'
+
+    # 3. Cleanup temp file in container
+    docker exec $ContainerName rm $TempFileName
 
     $EndTime = Get-Date
     $DurationSec = [math]::Round(($EndTime - $StartTime).TotalSeconds, 3)
